@@ -120,7 +120,7 @@ def _call_gemini(
     """Call the Gemini API. Separated for easy mocking in tests."""
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(
-        "gemini-2.5-flash",
+        "gemini-2.0-flash",
         system_instruction=SYSTEM_INSTRUCTION,
     )
 
