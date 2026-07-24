@@ -1,15 +1,20 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
-  Radar,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
+  Radar,
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import type { DimensionScore } from "@/lib/api";
+import type { DimensionScores } from "@/lib/types";
+
+interface Props {
+  scores: DimensionScores;
+}
 
 const DIMENSION_LABELS: Record<string, string> = {
   emotional_impact: "Emotion",
@@ -22,11 +27,13 @@ const DIMENSION_LABELS: Record<string, string> = {
   hook_quality: "Hook",
 };
 
-interface DimensionChartProps {
-  scores: Record<string, DimensionScore>;
+function getScoreColor(score: number): string {
+  if (score >= 70) return "#84CC16";
+  if (score >= 50) return "#F59E0B";
+  return "#EF4444";
 }
 
-export default function DimensionChart({ scores }: DimensionChartProps) {
+export default function DimensionChart({ scores }: Props) {
   const data = Object.entries(scores).map(([key, val]) => ({
     dimension: DIMENSION_LABELS[key] || key,
     score: val.score,
@@ -35,69 +42,71 @@ export default function DimensionChart({ scores }: DimensionChartProps) {
   }));
 
   return (
-    <div className="w-full">
-      <ResponsiveContainer width="100%" height={320}>
-        <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
-          <PolarGrid stroke="#e5e7eb" />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6, delay: 0.3 }}
+    >
+      <ResponsiveContainer width="100%" height={300}>
+        <RadarChart data={data} cx="50%" cy="50%" outerRadius="72%">
+          <PolarGrid stroke="rgba(124, 58, 237, 0.08)" />
           <PolarAngleAxis
             dataKey="dimension"
-            tick={{ fontSize: 12, fill: "#6b7280" }}
+            tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
           />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 100]}
-            tick={{ fontSize: 10 }}
+            tick={false}
+            axisLine={false}
           />
+          <Radar
+            name="Score"
+            dataKey="score"
+            stroke="#7C3AED"
+            fill="url(#radarGrad)"
+            fillOpacity={1}
+            strokeWidth={2}
+          />
+          <defs>
+            <radialGradient id="radarGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.05} />
+            </radialGradient>
+          </defs>
           <Tooltip
             content={({ payload }) => {
               if (!payload?.length) return null;
               const d = payload[0].payload;
               return (
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-sm max-w-xs">
-                  <p className="font-semibold">{d.dimension}: {d.score}/100</p>
-                  <p className="text-gray-600 dark:text-gray-300 mt-1">{d.detail}</p>
+                <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-3 text-sm max-w-xs shadow-xl">
+                  <p className="font-semibold text-[var(--text-primary)]">
+                    {d.dimension}: <span style={{ color: getScoreColor(d.score) }}>{d.score}</span>
+                  </p>
+                  <p className="text-[var(--text-secondary)] mt-1 text-xs leading-relaxed">{d.detail}</p>
                 </div>
               );
             }}
           />
-          <Radar
-            dataKey="score"
-            stroke="#6366f1"
-            fill="#6366f1"
-            fillOpacity={0.2}
-            strokeWidth={2}
-          />
         </RadarChart>
       </ResponsiveContainer>
 
-      {/* Score list below chart */}
-      <div className="grid grid-cols-2 gap-2 mt-4">
+      <div className="grid grid-cols-2 gap-1.5 mt-3">
         {data.map((d) => (
           <div
             key={d.dimension}
-            className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+            className="flex items-center justify-between px-3 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)]"
           >
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {d.dimension}
-            </span>
+            <span className="text-xs text-[var(--text-secondary)]">{d.dimension}</span>
             <span
               className="text-sm font-semibold tabular-nums"
-              style={{
-                color:
-                  d.score >= 70
-                    ? "#10b981"
-                    : d.score >= 50
-                    ? "#3b82f6"
-                    : d.score >= 30
-                    ? "#f59e0b"
-                    : "#ef4444",
-              }}
+              style={{ color: getScoreColor(d.score) }}
             >
               {d.score}
             </span>
           </div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

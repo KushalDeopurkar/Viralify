@@ -1,15 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import get_settings
+
+from app.config import settings
 from app.routers import analyse
 
-settings = get_settings()
-
-app = FastAPI(
-    title="Viralify API",
-    description="Analyse content and predict viral potential",
-    version="0.1.0",
-)
+app = FastAPI(title="Viralify API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,9 +14,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(analyse.router)
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "version": "0.1.0"}
+app.include_router(analyse.router, prefix="/api")

@@ -1,94 +1,136 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import type { Confidence } from "@/lib/types";
 
-interface ViralScoreProps {
+interface Props {
   score: number;
   verdict: string;
-  confidence: string;
+  confidence: Confidence;
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return "#10b981"; // green
-  if (score >= 60) return "#3b82f6"; // blue
-  if (score >= 40) return "#f59e0b"; // amber
-  return "#ef4444"; // red
+function getScoreColor(score: number): [string, string] {
+  if (score >= 80) return ["#84CC16", "rgba(132, 204, 22, 0.15)"];
+  if (score >= 60) return ["#7C3AED", "rgba(124, 58, 237, 0.15)"];
+  if (score >= 40) return ["#F59E0B", "rgba(245, 158, 11, 0.12)"];
+  return ["#EF4444", "rgba(239, 68, 68, 0.12)"];
 }
 
-function getScoreGradient(score: number): [string, string] {
-  if (score >= 80) return ["#10b981", "#059669"];
-  if (score >= 60) return ["#3b82f6", "#2563eb"];
-  if (score >= 40) return ["#f59e0b", "#d97706"];
-  return ["#ef4444", "#dc2626"];
-}
+export default function ViralScore({ score, verdict, confidence }: Props) {
+  const [displayScore, setDisplayScore] = useState(0);
+  const radius = 76;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (displayScore / 100) * circumference;
+  const [color, glow] = getScoreColor(score);
 
-export default function ViralScore({ score, verdict, confidence }: ViralScoreProps) {
-  const color = getScoreColor(score);
-  const [c1, c2] = getScoreGradient(score);
-  const circumference = 2 * Math.PI * 90;
-  const offset = circumference - (score / 100) * circumference;
+  useEffect(() => {
+    let frame = 0;
+    const totalFrames = 60;
+    const interval = setInterval(() => {
+      frame++;
+      const progress = frame / totalFrames;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayScore(Math.round(eased * score));
+      if (frame >= totalFrames) clearInterval(interval);
+    }, 16);
+    return () => clearInterval(interval);
+  }, [score]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative w-56 h-56">
-        <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
-          <defs>
-            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={c1} />
-              <stop offset="100%" stopColor={c2} />
-            </linearGradient>
-          </defs>
-          {/* Background ring */}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="flex flex-col items-center"
+    >
+      <div className="relative w-52 h-52">
+        {/* Outer glow ring */}
+        <div
+          className={score >= 60 ? "score-glow" : ""}
+          style={{
+            position: "absolute",
+            inset: -4,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${glow}, transparent 70%)`,
+          }}
+        />
+
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+          {/* Track */}
           <circle
-            cx="100" cy="100" r="90"
+            cx="100" cy="100" r={radius}
             fill="none"
-            stroke="currentColor"
-            strokeWidth="8"
-            className="text-gray-100 dark:text-gray-800"
+            stroke="rgba(255,255,255,0.04)"
+            strokeWidth="10"
           />
-          {/* Score ring */}
+          {/* Tick marks */}
+          {Array.from({ length: 40 }).map((_, i) => {
+            const angle = (i / 40) * 360;
+            const rad = (angle * Math.PI) / 180;
+            const isMajor = i % 10 === 0;
+            const innerR = isMajor ? 62 : 65;
+            const outerR = 68;
+            return (
+              <line
+                key={i}
+                x1={100 + innerR * Math.cos(rad)}
+                y1={100 + innerR * Math.sin(rad)}
+                x2={100 + outerR * Math.cos(rad)}
+                y2={100 + outerR * Math.sin(rad)}
+                stroke={isMajor ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)"}
+                strokeWidth={isMajor ? 1.5 : 0.75}
+              />
+            );
+          })}
+          {/* Progress arc */}
           <motion.circle
-            cx="100" cy="100" r="90"
+            cx="100" cy="100" r={radius}
             fill="none"
-            stroke="url(#scoreGrad)"
-            strokeWidth="8"
+            stroke={color}
+            strokeWidth="10"
             strokeLinecap="round"
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
+            animate={{ strokeDashoffset }}
+            transition={{ duration: 1.8, ease: "easeOut" }}
+          />
+          {/* End cap glow */}
+          <motion.circle
+            cx="100" cy="100" r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset }}
+            transition={{ duration: 1.8, ease: "easeOut" }}
+            style={{ filter: `blur(6px)` }}
+            opacity={0.4}
           />
         </svg>
-        {/* Score number */}
+
+        {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <motion.span
+          <span
             className="text-5xl font-bold tabular-nums"
             style={{ color }}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
           >
-            {score}
-          </motion.span>
-          <span className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            / 100
+            {displayScore}
+          </span>
+          <span className="text-[11px] text-[var(--text-muted)] mt-0.5 tracking-wide">
+            out of 100
           </span>
         </div>
       </div>
 
-      <motion.div
-        className="text-center"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1 }}
-      >
-        <p className="text-lg font-semibold" style={{ color }}>
-          {verdict}
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Confidence: {confidence}
-        </p>
-      </motion.div>
-    </div>
+      <p className="mt-4 text-base font-semibold text-[var(--text-primary)]">
+        {verdict}
+      </p>
+      <span className="text-[11px] text-[var(--text-muted)] mt-1.5 px-3 py-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)]">
+        {confidence} confidence
+      </span>
+    </motion.div>
   );
 }

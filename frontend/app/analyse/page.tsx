@@ -2,256 +2,243 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Zap, Sparkles } from "lucide-react";
-import { analyseContent, type AnalysisResult } from "@/lib/api";
+import { Zap, Loader2, Activity } from "lucide-react";
+
+import ContentInput from "@/components/ContentInput";
+import PlatformSelector from "@/components/PlatformSelector";
 import ViralScore from "@/components/ViralScore";
 import DimensionChart from "@/components/DimensionChart";
 import Suggestions from "@/components/Suggestions";
+import ImageInsights from "@/components/ImageInsights";
+import KeyframeTimeline from "@/components/KeyframeTimeline";
+import RecommendationsBar from "@/components/RecommendationsBar";
 
-const PLATFORMS = [
-  { value: "twitter", label: "Twitter / X" },
-  { value: "linkedin", label: "LinkedIn" },
-  { value: "instagram", label: "Instagram" },
-  { value: "tiktok", label: "TikTok" },
-  { value: "reddit", label: "Reddit" },
-  { value: "youtube", label: "YouTube" },
-  { value: "blog", label: "Blog post" },
-  { value: "general", label: "General" },
-];
+import { analyseContent } from "@/lib/api";
+import type { AnalyseResponse, ContentType, Platform } from "@/lib/types";
+
+const LOADING_MESSAGES: Record<ContentType, string[]> = {
+  text: [
+    "Reading between the lines...",
+    "Mapping emotional triggers...",
+    "Calibrating viral potential...",
+  ],
+  image: [
+    "Scanning visual composition...",
+    "Detecting engagement signals...",
+    "Evaluating viral potential...",
+  ],
+  video: [
+    "Extracting keyframes...",
+    "Transcribing audio...",
+    "Analysing content signals...",
+  ],
+};
 
 export default function AnalysePage() {
-  const [content, setContent] = useState("");
-  const [platform, setPlatform] = useState("general");
+  const [contentType, setContentType] = useState<ContentType>("text");
+  const [platform, setPlatform] = useState<Platform>("twitter");
+  const [text, setText] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [error, setError] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [result, setResult] = useState<AnalyseResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyse = async () => {
-    if (content.trim().length < 10) {
-      setError("Content must be at least 10 characters");
-      return;
-    }
+  const canAnalyse =
+    (contentType === "text" && text.trim().length >= 10) ||
+    (contentType === "image" && imageFile !== null) ||
+    (contentType === "video" && videoFile !== null);
 
+  async function handleAnalyse() {
     setLoading(true);
-    setError("");
+    setError(null);
     setResult(null);
 
+    const messages = LOADING_MESSAGES[contentType];
+    let msgIdx = 0;
+    setLoadingMessage(messages[0]);
+    const interval = setInterval(() => {
+      msgIdx = (msgIdx + 1) % messages.length;
+      setLoadingMessage(messages[msgIdx]);
+    }, 2500);
+
     try {
-      const data = await analyseContent({ content, platform });
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message || "Analysis failed. Check your connection.");
+      const response = await analyseContent({
+        contentType,
+        platform,
+        content: contentType === "text" ? text : undefined,
+        file:
+          contentType === "image"
+            ? imageFile!
+            : contentType === "video"
+            ? videoFile!
+            : undefined,
+      });
+      setResult(response);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Analysis failed. Please try again."
+      );
     } finally {
       setLoading(false);
+      clearInterval(interval);
     }
-  };
-
-  const charCount = content.length;
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Sparkles className="w-8 h-8 text-indigo-500" />
-            Viralify
+    <div className="min-h-screen">
+      {/* Nav */}
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[var(--bg-primary)]/80 border-b border-[var(--border-subtle)]">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--accent-violet)] to-[var(--accent-coral)] flex items-center justify-center">
+              <Activity size={14} className="text-white" />
+            </div>
+            <span className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              Viralify
+            </span>
+          </div>
+          <span className="text-xs text-[var(--text-muted)] hidden sm:block">
+            AI-powered content analysis
+          </span>
+        </div>
+      </nav>
+
+      {/* Main content */}
+      <main className="max-w-5xl mx-auto px-6 py-10">
+        {/* Hero heading */}
+        <div className="mb-10">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+            Will it go{" "}
+            <span className="bg-gradient-to-r from-[var(--accent-violet)] to-[var(--accent-coral)] bg-clip-text text-transparent">
+              viral
+            </span>
+            ?
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Predict if your content will go viral
+          <p className="text-[var(--text-secondary)] mt-2 text-base">
+            Paste your content, pick a platform, get a score.
           </p>
         </div>
 
         {/* Input section */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-          {/* Platform selector */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {PLATFORMS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPlatform(p.value)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                  platform === p.value
-                    ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-medium"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Content textarea */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Paste your content here — tweet, LinkedIn post, blog intro, video script, headline..."
-            rows={8}
-            className="w-full px-4 py-3 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400"
+        <section className="space-y-5 mb-10">
+          <ContentInput
+            contentType={contentType}
+            onContentTypeChange={(t) => {
+              setContentType(t);
+              setResult(null);
+              setError(null);
+            }}
+            text={text}
+            onTextChange={setText}
+            imageFile={imageFile}
+            onImageChange={setImageFile}
+            videoFile={videoFile}
+            onVideoChange={setVideoFile}
           />
 
-          {/* Footer: char count + analyse button */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="text-xs text-gray-500 dark:text-gray-400 space-x-3">
-              <span>{charCount} chars</span>
-              <span>{wordCount} words</span>
-            </div>
+          <PlatformSelector selected={platform} onChange={setPlatform} />
 
-            <button
-              onClick={handleAnalyse}
-              disabled={loading || content.trim().length < 10}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analysing...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Analyse
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={handleAnalyse}
+            disabled={!canAnalyse || loading}
+            className="btn-primary w-full py-3.5 px-6 text-sm flex items-center justify-center gap-2.5"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span className="animate-pulse">{loadingMessage}</span>
+              </>
+            ) : (
+              <>
+                <Zap size={16} />
+                Analyse viral potential
+              </>
+            )}
+          </button>
+        </section>
 
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-3">{error}</p>
-          )}
-        </div>
-
-        {/* Loading state */}
+        {/* Error */}
         <AnimatePresence>
-          {loading && (
+          {error && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-12 flex flex-col items-center gap-4"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="p-4 rounded-2xl bg-red-500/8 border border-red-500/15 text-red-400 text-sm mb-8"
             >
-              <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-              <p className="text-gray-600 dark:text-gray-400">
-                Running NLP analysis and STEPPS evaluation...
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                This takes 3-5 seconds
-              </p>
+              {error}
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Results */}
         <AnimatePresence>
-          {result && !loading && (
+          {result && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
             >
-              {/* Score + chart row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Viral score */}
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 flex items-center justify-center">
-                  <ViralScore
-                    score={result.overall_score}
-                    verdict={result.verdict}
-                    confidence={result.confidence}
-                  />
-                </div>
-
-                {/* Dimension chart */}
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                  <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-                    Dimension breakdown
-                  </h2>
-                  <DimensionChart scores={result.dimension_scores} />
-                </div>
+              {/* Divider */}
+              <div className="flex items-center gap-4 mb-10">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--accent-violet)]/30 to-transparent" />
+                <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-widest">
+                  Results
+                </span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--accent-violet)]/30 to-transparent" />
               </div>
 
-              {/* Quick stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {result.emotions_detected.slice(0, 2).map((emotion, i) => (
-                  <div
-                    key={i}
-                    className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4"
-                  >
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Detected emotion
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize mt-1">
-                      {emotion}
-                    </p>
+              <div className="space-y-8">
+                {/* Score + Chart row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                  <div className="glass-card p-8">
+                    <ViralScore
+                      score={result.overall_score}
+                      verdict={result.verdict}
+                      confidence={result.confidence}
+                    />
                   </div>
-                ))}
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Readability
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
-                    {result.nlp_features.readability.difficulty}
-                  </p>
+                  <div className="glass-card p-6">
+                    <DimensionChart scores={result.dimension_scores} />
+                  </div>
                 </div>
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Platform fit
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
-                    {result.nlp_features.platform_fit.overall_platform_score}/100
-                  </p>
-                </div>
-              </div>
 
-              {/* Suggestions */}
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
+                {/* Content-specific insights */}
+                {result.cv_features && result.content_type === "image" && (
+                  <ImageInsights features={result.cv_features} />
+                )}
+                {result.video_features && result.content_type === "video" && (
+                  <KeyframeTimeline features={result.video_features} />
+                )}
+
+                {/* Suggestions */}
                 <Suggestions
-                  suggestions={result.suggestions}
                   strengths={result.strengths}
                   weaknesses={result.weaknesses}
+                  suggestions={result.suggestions}
                   rewrittenHook={result.rewritten_hook}
+                  thumbnailSuggestions={result.thumbnail_suggestions}
                 />
-              </div>
 
-              {/* Hashtags & timing */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Recommended hashtags
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {result.recommended_hashtags.map((tag, i) => (
-                      <span
-                        key={i}
-                        className="px-3 py-1 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full"
-                      >
-                        #{tag.replace(/^#/, "")}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                {/* Recommendations */}
+                <RecommendationsBar
+                  bestPostingTimes={result.best_posting_times}
+                  recommendedHashtags={result.recommended_hashtags}
+                  emotionsDetected={result.emotions_detected}
+                />
 
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Best posting times
-                  </h3>
-                  <ul className="space-y-2">
-                    {result.best_posting_times.map((time, i) => (
-                      <li
-                        key={i}
-                        className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                        {time}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {/* Processing time */}
+                <p className="text-xs text-[var(--text-muted)] text-center pb-8">
+                  Analysed in {(result.processing_time_ms / 1000).toFixed(1)}s
+                </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </main>
     </div>
   );
 }

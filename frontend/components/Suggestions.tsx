@@ -1,103 +1,114 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowUp, Lightbulb } from "lucide-react";
-import type { Suggestion } from "@/lib/api";
+import { CheckCircle, XCircle, Lightbulb, Quote } from "lucide-react";
+import type { Suggestion } from "@/lib/types";
+
+interface Props {
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: Suggestion[];
+  rewrittenHook: string | null;
+  thumbnailSuggestions: string | null;
+}
 
 const PRIORITY_CONFIG = {
   high: {
-    icon: AlertTriangle,
-    bg: "bg-red-50 dark:bg-red-900/20",
-    border: "border-red-200 dark:border-red-800",
-    badge: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+    bg: "rgba(239, 68, 68, 0.06)",
+    border: "rgba(239, 68, 68, 0.15)",
+    text: "#EF4444",
     label: "High priority",
   },
   medium: {
-    icon: ArrowUp,
-    bg: "bg-amber-50 dark:bg-amber-900/20",
-    border: "border-amber-200 dark:border-amber-800",
-    badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+    bg: "rgba(245, 158, 11, 0.06)",
+    border: "rgba(245, 158, 11, 0.15)",
+    text: "#F59E0B",
     label: "Medium",
   },
   low: {
-    icon: Lightbulb,
-    bg: "bg-blue-50 dark:bg-blue-900/20",
-    border: "border-blue-200 dark:border-blue-800",
-    badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+    bg: "rgba(124, 58, 237, 0.06)",
+    border: "rgba(124, 58, 237, 0.12)",
+    text: "#7C3AED",
     label: "Nice to have",
   },
 };
 
-interface SuggestionsProps {
-  suggestions: Suggestion[];
-  strengths: string[];
-  weaknesses: string[];
-  rewrittenHook: string;
-}
-
 export default function Suggestions({
-  suggestions,
   strengths,
   weaknesses,
+  suggestions,
   rewrittenHook,
-}: SuggestionsProps) {
+  thumbnailSuggestions,
+}: Props) {
   return (
-    <div className="space-y-6">
-      {/* Strengths & Weaknesses */}
+    <div className="space-y-4">
+      {/* Strengths / Weaknesses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
-          <h3 className="text-sm font-semibold text-green-700 dark:text-green-400 mb-3">
-            Strengths
+        <motion.div
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass-card-static p-5"
+          style={{ borderColor: "rgba(132, 204, 22, 0.15)" }}
+        >
+          <h3 className="text-sm font-semibold text-[#84CC16] mb-3 flex items-center gap-2">
+            <CheckCircle size={15} /> Strengths
           </h3>
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {strengths.map((s, i) => (
-              <li key={i} className="text-sm text-green-800 dark:text-green-300 flex gap-2">
-                <span className="shrink-0 mt-0.5">✓</span>
-                <span>{s}</span>
+              <li key={i} className="text-sm text-[var(--text-secondary)] flex items-start gap-2.5">
+                <span className="text-[#84CC16] mt-0.5 text-xs">+</span>
+                <span className="leading-relaxed">{s}</span>
               </li>
             ))}
           </ul>
-        </div>
+        </motion.div>
 
-        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
-          <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-3">
-            Weaknesses
+        <motion.div
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+          className="glass-card-static p-5"
+          style={{ borderColor: "rgba(239, 68, 68, 0.15)" }}
+        >
+          <h3 className="text-sm font-semibold text-[#EF4444] mb-3 flex items-center gap-2">
+            <XCircle size={15} /> Weaknesses
           </h3>
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {weaknesses.map((w, i) => (
-              <li key={i} className="text-sm text-red-800 dark:text-red-300 flex gap-2">
-                <span className="shrink-0 mt-0.5">✗</span>
-                <span>{w}</span>
+              <li key={i} className="text-sm text-[var(--text-secondary)] flex items-start gap-2.5">
+                <span className="text-[#EF4444] mt-0.5 text-xs">−</span>
+                <span className="leading-relaxed">{w}</span>
               </li>
             ))}
           </ul>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Suggestions */}
+      {/* Suggestion cards */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          Suggestions to boost virality
-        </h3>
-        {suggestions.map((sug, i) => {
-          const config = PRIORITY_CONFIG[sug.priority] || PRIORITY_CONFIG.low;
-          const Icon = config.icon;
+        {suggestions.map((s, i) => {
+          const config = PRIORITY_CONFIG[s.priority];
           return (
             <motion.div
               key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.15 }}
-              className={`rounded-xl border ${config.border} ${config.bg} p-4 flex gap-3`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 + i * 0.1 }}
+              className="p-4 rounded-2xl"
+              style={{ background: config.bg, border: `1px solid ${config.border}` }}
             >
-              <Icon className="w-5 h-5 shrink-0 mt-0.5 opacity-60" />
-              <div>
-                <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-1.5 ${config.badge}`}>
-                  {config.label}
-                </span>
-                <p className="text-sm text-gray-800 dark:text-gray-200">
-                  {sug.suggestion}
-                </p>
+              <div className="flex items-start gap-3">
+                <Lightbulb size={15} className="mt-0.5 shrink-0" style={{ color: config.text }} />
+                <div className="flex-1">
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: config.text, opacity: 0.7 }}
+                  >
+                    {config.label}
+                  </span>
+                  <p className="text-sm text-[var(--text-primary)] mt-1 leading-relaxed">{s.text}</p>
+                </div>
               </div>
             </motion.div>
           );
@@ -106,14 +117,36 @@ export default function Suggestions({
 
       {/* Rewritten hook */}
       {rewrittenHook && (
-        <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4">
-          <h3 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-2">
-            Improved opening line
-          </h3>
-          <p className="text-sm text-indigo-900 dark:text-indigo-200 italic">
-            &ldquo;{rewrittenHook}&rdquo;
-          </p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+          className="gradient-border"
+        >
+          <div className="p-5 relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <Quote size={14} className="text-[var(--accent-violet)]" />
+              <h3 className="text-sm font-semibold text-[var(--accent-violet)]">Rewritten hook</h3>
+            </div>
+            <p className="text-sm text-[var(--text-primary)] italic leading-relaxed">
+              &ldquo;{rewrittenHook}&rdquo;
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Thumbnail/visual suggestions */}
+      {thumbnailSuggestions && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.95 }}
+          className="glass-card-static p-5"
+          style={{ borderColor: "rgba(168, 85, 247, 0.15)" }}
+        >
+          <h3 className="text-sm font-semibold text-purple-400 mb-2">Visual suggestions</h3>
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{thumbnailSuggestions}</p>
+        </motion.div>
       )}
     </div>
   );
