@@ -1,11 +1,15 @@
 import json
+import logging
 import re
 from typing import Optional
 
 import google.generativeai as genai
+from groq import Groq
 
 from app.config import settings
 from app.models.schemas import NlpFeatures, CvFeatures, VideoFeatures
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_INSTRUCTION = """You are Viralify, an expert content virality analyst. You evaluate content using Jonah Berger's STEPPS framework (Social Currency, Triggers, Emotion, Public, Practical Value, Stories) extended with Platform Fit and Hook Quality.
 
@@ -112,29 +116,50 @@ def _parse_gemini_response(text: str) -> dict:
     return json.loads(cleaned)
 
 
+def _call_groq(prompt: str) -> dict:
+    """Fallback: call Groq API for text-only analysis when Gemini is unavailable."""
+    client = Groq(api_key=settings.groq_api_key)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+        max_tokens=2000,
+    )
+    return _parse_gemini_response(response.choices[0].message.content)
+
+
 def _call_gemini(
     prompt: str,
     image_bytes: Optional[bytes] = None,
     keyframe_images: Optional[list[bytes]] = None,
 ) -> dict:
-    """Call the Gemini API. Separated for easy mocking in tests."""
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel(
-        "gemini-2.0-flash",
-        system_instruction=SYSTEM_INSTRUCTION,
-    )
+    """Call the Gemini API, falling back to Groq for text-only if Gemini fails."""
+    try:
+        genai.configure(api_key=settings.gemini_api_key)
+        model = genai.GenerativeModel(
+            "gemini-2.0-flash",
+            system_instruction=SYSTEM_INSTRUCTION,
+        )
 
-    content_parts = [prompt]
+        content_parts = [prompt]
 
-    if image_bytes:
-        content_parts.append({"mime_type": "image/jpeg", "data": image_bytes})
+        if image_bytes:
+            content_parts.append({"mime_type": "image/jpeg", "data": image_bytes})
 
-    if keyframe_images:
-        for i, frame_bytes in enumerate(keyframe_images[:3]):
-            content_parts.append({"mime_type": "image/jpeg", "data": frame_bytes})
+        if keyframe_images:
+            for i, frame_bytes in enumerate(keyframe_images[:3]):
+                content_parts.append({"mime_type": "image/jpeg", "data": frame_bytes})
 
-    response = model.generate_content(content_parts)
-    return _parse_gemini_response(response.text)
+        response = model.generate_content(content_parts)
+        return _parse_gemini_response(response.text)
+    except Exception as e:
+        logger.warning(f"Gemini API failed ({e}), falling back to Groq")
+        if image_bytes or keyframe_images:
+            raise  # Groq can't handle images, re-raise
+        return _call_groq(prompt)
 
 
 def analyse_with_gemini(
