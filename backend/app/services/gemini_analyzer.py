@@ -109,10 +109,19 @@ def _build_prompt(
 
 
 def _parse_gemini_response(text: str) -> dict:
-    """Parse Gemini response, stripping markdown fences if present."""
+    """Parse AI response, stripping markdown fences and fixing common JSON issues."""
     cleaned = text.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
+    # Strip markdown fences
+    cleaned = re.sub(r"^```(?:json)?\s*\n?", "", cleaned)
+    cleaned = re.sub(r"\n?\s*```\s*$", "", cleaned)
+    # Extract JSON object if there's surrounding text
+    match = re.search(r"\{[\s\S]*\}", cleaned)
+    if match:
+        cleaned = match.group(0)
+    # Fix trailing commas before } or ]
+    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
+    # Fix unescaped newlines inside string values
+    cleaned = re.sub(r'(?<=": ")(.*?)(?="[,\s}])', lambda m: m.group(0).replace("\n", " "), cleaned)
     return json.loads(cleaned)
 
 
@@ -122,11 +131,12 @@ def _call_groq(prompt: str) -> dict:
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "system", "content": SYSTEM_INSTRUCTION + "\n\nIMPORTANT: Keep all string values SHORT (under 100 chars). No newlines inside strings."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
         max_tokens=2000,
+        response_format={"type": "json_object"},
     )
     return _parse_gemini_response(response.choices[0].message.content)
 
